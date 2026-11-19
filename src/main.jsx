@@ -25,6 +25,137 @@ function PhotoSlot({ label, className = '', src, alt = label, position = '50% 50
   </div>;
 }
 
+function ScratchNoteCard({ item, revealed, onReveal }) {
+  const canvasRef = useRef(null);
+  const scratchingRef = useRef(false);
+  const lastPointRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return undefined;
+
+    const drawCover = () => {
+      const bounds = canvas.getBoundingClientRect();
+      const scale = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(bounds.width * scale);
+      canvas.height = Math.round(bounds.height * scale);
+
+      const context = canvas.getContext('2d');
+      if (!context) return;
+
+      context.setTransform(scale, 0, 0, scale, 0, 0);
+      const cover = context.createLinearGradient(0, 0, bounds.width, bounds.height);
+      cover.addColorStop(0, '#d2e3e9');
+      cover.addColorStop(0.5, '#91adbb');
+      cover.addColorStop(1, '#c0d5dd');
+      context.fillStyle = cover;
+      context.fillRect(0, 0, bounds.width, bounds.height);
+
+      context.strokeStyle = 'rgba(255,255,255,.2)';
+      context.lineWidth = 1;
+      for (let x = -bounds.height; x < bounds.width; x += 18) {
+        context.beginPath();
+        context.moveTo(x, 0);
+        context.lineTo(x + bounds.height, bounds.height);
+        context.stroke();
+      }
+
+      context.textAlign = 'center';
+      context.fillStyle = 'rgba(20,51,70,.78)';
+      context.font = '34px serif';
+      context.fillText('✧', bounds.width / 2, bounds.height / 2 - 12);
+      context.font = '600 15.6px sans-serif';
+      context.fillText('SCRATCH TO REVEAL', bounds.width / 2, bounds.height / 2 + 16);
+    };
+
+    drawCover();
+    window.addEventListener('resize', drawCover);
+    return () => window.removeEventListener('resize', drawCover);
+  }, []);
+
+  const scratchAt = (event) => {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext('2d');
+    if (!canvas || !context) return;
+
+    const bounds = canvas.getBoundingClientRect();
+    const point = { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+    context.globalCompositeOperation = 'destination-out';
+    context.lineWidth = 42;
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    context.beginPath();
+
+    if (lastPointRef.current) {
+      context.moveTo(lastPointRef.current.x, lastPointRef.current.y);
+      context.lineTo(point.x, point.y);
+      context.stroke();
+    } else {
+      context.arc(point.x, point.y, 21, 0, Math.PI * 2);
+      context.fill();
+    }
+
+    lastPointRef.current = point;
+  };
+
+  const startScratch = (event) => {
+    scratchingRef.current = true;
+    lastPointRef.current = null;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    scratchAt(event);
+  };
+
+  const continueScratch = (event) => {
+    if (scratchingRef.current) scratchAt(event);
+  };
+
+  const finishScratch = () => {
+    if (!scratchingRef.current) return;
+    scratchingRef.current = false;
+    lastPointRef.current = null;
+
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext('2d');
+    if (!canvas || !context) return;
+
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    let clearedPixels = 0;
+    for (let i = 3; i < pixels.length; i += 16) {
+      if (pixels[i] < 20) clearedPixels += 1;
+    }
+
+    const sampledPixels = Math.ceil((canvas.width * canvas.height) / 4);
+    if (clearedPixels / sampledPixels >= 0.4) onReveal();
+  };
+
+  return <button
+    className={`secret-card ${revealed ? 'opened' : ''}`}
+    type="button"
+    onClick={event => {
+      if (event.detail === 0 && !revealed) onReveal();
+    }}
+    aria-expanded={revealed}
+  >
+    <span className="secret-icon">{item.icon}</span>
+    <span className="secret-title">{item.title}</span>
+    {revealed
+      ? <span className="secret-note">{item.note}</span>
+      : <span className="secret-hint">Scratch to reveal ✧</span>}
+    {!revealed && <canvas
+      ref={canvasRef}
+      className="secret-scratch-surface"
+      aria-hidden="true"
+      onPointerDown={startScratch}
+      onPointerMove={continueScratch}
+      onPointerUp={finishScratch}
+      onPointerCancel={() => {
+        scratchingRef.current = false;
+        lastPointRef.current = null;
+      }}
+    />}
+  </button>;
+}
+
 function HangingPhotoGallery() {
   const [photos, setPhotos] = useState([
     { name: 'A favourite portrait', url: '/photos/photo-01.jpg', label: 'A favourite photo', position: '50% 38%' },
@@ -80,7 +211,7 @@ function Calendar() {
     <div className="calendar-top"><span>♡</span><span>THE MONTH OF YOU</span><span>♡</span></div>
     <h2>November <em>2026</em></h2>
     <div className="calendar-grid weekdays">{['S','M','T','W','T','F','S'].map((d,i)=><span key={i}>{d}</span>)}</div>
-    <div className="calendar-grid dates">{cells.map((d,i)=><span key={i} className={d===25?'birthday-date':d===null?'empty':''}>{d===25?<><b>25</b><i>♥</i></>:d}</span>)}</div>
+    <div className="calendar-grid dates">{cells.map((d,i)=><span key={i} className={d===25?'birthday-date':d===null?'empty':''}>{d===25?<><b>25</b><i>♡</i></>:d}</span>)}</div>
     <p className="calendar-caption">The day the world got a little more beautiful ✨</p>
   </div>
 }
@@ -235,10 +366,10 @@ function SiblingQuiz() {
 
 function App() {
   const [unlocked, setUnlocked] = useState(false);
-  const [opened, setOpened] = useState([]);
+  const [revealedNotes, setRevealedNotes] = useState([]);
   const [cakeLit, setCakeLit] = useState(false);
   const [musicOn, setMusicOn] = useState(false);
-  const toggleNote = (i) => setOpened(prev => prev.includes(i) ? prev.filter(x=>x!==i) : [...prev, i]);
+  const revealNote = (i) => setRevealedNotes(prev => prev.includes(i) ? prev : [...prev, i]);
 
   useEffect(() => {
     const sections = document.querySelectorAll('.section-wrap:not(.hero)');
@@ -373,8 +504,15 @@ function App() {
     </section>
 
     <section className="secrets section-wrap">
-      <p className="eyebrow">A few tiny surprises</p><h2>Open a little<br/><em>love note.</em></h2><p className="section-sub">Tap each card. There are words hidden just for you.</p>
-      <div className="secret-grid">{secretNotes.map((item,i)=><button className={`secret-card ${opened.includes(i)?'opened':''}`} key={i} onClick={()=>toggleNote(i)} aria-expanded={opened.includes(i)}><span className="secret-icon">{item.icon}</span><span className="secret-title">{item.title}</span>{opened.includes(i)?<span className="secret-note">{item.note}</span>:<span className="secret-hint">Tap to open ✧</span>}</button>)}</div>
+      <p className="eyebrow">A few tiny surprises</p><h2>Open a little<br/><em>love note.</em></h2><p className="section-sub">Scratch each card with your cursor or finger to reveal a hidden note.</p>
+      <div className="secret-grid">{secretNotes.map((item, i) =>
+        <ScratchNoteCard
+          key={i}
+          item={item}
+          revealed={revealedNotes.includes(i)}
+          onReveal={() => revealNote(i)}
+        />
+      )}</div>
     </section>
 
     <section className="cake-section section-wrap">
