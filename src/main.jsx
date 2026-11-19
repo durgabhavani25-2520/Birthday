@@ -5,6 +5,8 @@ import FaceGate from './FaceGate.jsx';
 import ThreeBackground from './ThreeBackground.jsx';
 import './styles.css';
 
+const birthdayRevealTime = new Date('2026-11-24T00:00:00+05:30').getTime();
+
 const secretNotes = [
   { icon: '♡', title: 'A little reminder', note: 'Even on the days you feel tired, remember that you are someone’s safe place. You make my world feel softer just by being in it.' },
   { icon: '✿', title: 'My favourite memory', note: 'The little moments when we cook together, laugh at nothing, and talk about everything. I wish I could save those moments in a jar.' },
@@ -216,17 +218,8 @@ function Calendar() {
   </div>
 }
 
-function BirthdayCountdown() {
-  const birthday = new Date('2026-11-25T00:00:00+05:30').getTime();
-  const [remaining, setRemaining] = useState(() => Math.max(0, birthday - Date.now()));
+function BirthdayCountdown({ remaining }) {
   const message = 'Happy birthday, Akka! Wishing you a beautiful year full of love, laughter, peace, and all the happiness you deserve. I love you endlessly! ♡';
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setRemaining(Math.max(0, birthday - Date.now()));
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [birthday]);
 
   if (remaining === 0) {
     return <div className="birthday-countdown birthday-countdown-complete" role="status">
@@ -248,7 +241,7 @@ function BirthdayCountdown() {
     { label: 'Seconds', value: seconds % 60 },
   ];
 
-  return <div className="birthday-countdown" role="timer" aria-label="Countdown to Akka's birthday at midnight on November 25, 2026, India time">
+  return <div className="birthday-countdown" role="timer" aria-label="Countdown to the birthday page reveal at midnight on November 24, 2026, India time">
     <p className="eyebrow">Counting down to midnight · India time</p>
     <div className="countdown-units">
       {units.map(({ label, value }) => <div className="countdown-unit" key={label}>
@@ -366,10 +359,18 @@ function SiblingQuiz() {
 
 function App() {
   const [unlocked, setUnlocked] = useState(false);
+  const [remaining, setRemaining] = useState(() => Math.max(0, birthdayRevealTime - Date.now()));
   const [revealedNotes, setRevealedNotes] = useState([]);
   const [cakeLit, setCakeLit] = useState(false);
   const [musicOn, setMusicOn] = useState(false);
   const revealNote = (i) => setRevealedNotes(prev => prev.includes(i) ? prev : [...prev, i]);
+
+  useEffect(() => {
+    const updateCountdown = () => setRemaining(Math.max(0, birthdayRevealTime - Date.now()));
+    updateCountdown();
+    const timer = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const sections = document.querySelectorAll('.section-wrap:not(.hero)');
@@ -391,7 +392,7 @@ function App() {
       observer.observe(section);
     });
     return () => observer.disconnect();
-  }, [unlocked]);
+  }, [unlocked, remaining === 0]);
 
   useEffect(() => {
     if (window.matchMedia('(max-width: 800px), (pointer: coarse), (prefers-reduced-motion: reduce)').matches) {
@@ -453,9 +454,15 @@ function App() {
         target.removeEventListener('pointerleave', resetTilt);
       });
     };
-  }, [unlocked]);
+  }, [unlocked, remaining === 0]);
 
   if (!unlocked) return <FaceGate onUnlock={() => setUnlocked(true)} />;
+  if (remaining > 0) return <>
+    <ThreeBackground />
+    <main className="countdown-only-screen">
+      <BirthdayCountdown remaining={remaining} />
+    </main>
+  </>;
 
   return <>
     <ThreeBackground />
@@ -465,7 +472,7 @@ function App() {
     <section className="birthday section-wrap" id="birthday">
       <div className="section-heading"><p className="eyebrow">A date worth keeping</p><h2>November is special.<br/><em>But the 25th is magic.</em></h2></div>
       <Calendar />
-      <BirthdayCountdown />
+      <BirthdayCountdown remaining={remaining} />
       <p className="birthday-note">Some dates are just dates. And then there is the day <strong>you came into this world.</strong></p>
     </section>
 
