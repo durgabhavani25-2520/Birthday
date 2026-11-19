@@ -5,7 +5,7 @@ import FaceGate from './FaceGate.jsx';
 import ThreeBackground from './ThreeBackground.jsx';
 import './styles.css';
 
-const birthdayRevealTime = new Date('2026-11-24T00:00:00+05:30').getTime();
+const birthdayRevealTime = new Date('2026-11-25T00:00:00+05:30').getTime();
 
 const secretNotes = [
   { icon: '♡', title: 'A little reminder', note: 'Even on the days you feel tired, remember that you are someone’s safe place. You make my world feel softer just by being in it.' },
@@ -241,7 +241,7 @@ function BirthdayCountdown({ remaining }) {
     { label: 'Seconds', value: seconds % 60 },
   ];
 
-  return <div className="birthday-countdown" role="timer" aria-label="Countdown to the birthday page reveal at midnight on November 24, 2026, India time">
+  return <div className="birthday-countdown" role="timer" aria-label="Countdown to the birthday page reveal at midnight on November 25, 2026, India time">
     <p className="eyebrow">Counting down to midnight · India time</p>
     <div className="countdown-units">
       {units.map(({ label, value }) => <div className="countdown-unit" key={label}>
